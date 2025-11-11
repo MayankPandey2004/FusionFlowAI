@@ -159,23 +159,44 @@ export default function Dashboard() {
             </CardTitle>
             <CardDescription>Select a date to generate 24-hour predictions</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <Input
-              id="date"
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="glass-ultra h-12 border-border/20 focus:border-primary/30 focus:ring-primary/20"
-            />
-            <Button
-              onClick={handlePredictTraffic}
-              disabled={isLoadingPrediction}
-              className="h-12 w-full sm:w-auto bg-primary/80 hover:bg-primary/90 text-primary-foreground"
-            >
-              {isLoadingPrediction ? "Predicting..." : "Predict Traffic"}
-            </Button>
+
+          {/* 🧠 Two-column layout with GIF beside the form */}
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 items-center gap-8">
+            {/* Left: Date input + button */}
+            <div className="space-y-6">
+              <Input
+                id="date"
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="glass-ultra h-12 border-2 border-primary/70 bg-background/40 text-foreground/90 outline-none shadow-[0_0_18px_#9333ea80] hover:shadow-[0_0_24px_#9333eaaa] focus:shadow-[0_0_30px_#a855f7] focus:border-primary transition-all duration-500 rounded-lg"
+              />
+
+
+
+              <Button
+                onClick={handlePredictTraffic}
+                disabled={isLoadingPrediction}
+                className="h-12 w-full sm:w-auto bg-primary/80 hover:bg-primary/90 text-primary-foreground"
+              >
+                {isLoadingPrediction ? "Predicting..." : "Predict Traffic"}
+              </Button>
+            </div>
+
+            {/* Right: Animated GIF */}
+            <div className="flex justify-center md:justify-end">
+              <motion.img
+                src="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExZGlxY3o4aG5xYzd4bnBwdHYzeHdhbjBjdHB4Zm1wb3ducmcza2dlbSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/Ylf4nae35DcZkHxDgx/giphy.gif"
+                alt="Traffic Animation"
+                className="w-64 h-64 rounded-xl shadow-lg hover:scale-105 transition-transform duration-500 border border-border/20"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 1.0, ease: 'easeOut' }}
+              />
+            </div>
           </CardContent>
         </Card>
+
         {/* 🌦️ Weather Impact Section */}
         <Card className="glass-ultra border border-border/10">
           <CardHeader>
@@ -234,34 +255,46 @@ export default function Dashboard() {
 
 
         {/* 📊 Metrics Cards */}
-        {predictionData && predictionData.metrics && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="glass-strong">
-              <CardContent className="p-6 text-center">
-                <h3 className="text-lg font-semibold text-foreground/80">Historic Model RMSE</h3>
-                <p className="text-3xl font-bold text-primary mt-2">
-                  {predictionData.metrics.historical_rmse.toFixed(2)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="glass-strong">
-              <CardContent className="p-6 text-center">
-                <h3 className="text-lg font-semibold text-foreground/80">Fused Model RMSE</h3>
-                <p className="text-3xl font-bold text-secondary mt-2">
-                  {predictionData.metrics.fused_rmse.toFixed(2)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="glass-strong">
-              <CardContent className="p-6 text-center">
-                <h3 className="text-lg font-semibold text-foreground/80">% Improvement</h3>
-                <p className="text-3xl font-bold text-green-500 mt-2">
-                  {predictionData.metrics.improvement.toFixed(1)}%
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        <AnimatePresence>
+          {predictionData && predictionData.metrics && (
+            <motion.div
+              key="metrics-cards"
+              initial={{ opacity: 0, y: 40, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.98 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="grid grid-cols-1 md:grid-cols-3 gap-6"
+            >
+              <Card className="glass-strong hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                <CardContent className="p-6 text-center">
+                  <h3 className="text-lg font-semibold text-foreground/80">Historic Model RMSE</h3>
+                  <p className="text-3xl font-bold text-primary mt-2">
+                    {predictionData.metrics.historical_rmse.toFixed(2)}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="glass-strong hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                <CardContent className="p-6 text-center">
+                  <h3 className="text-lg font-semibold text-foreground/80">Fused Model RMSE</h3>
+                  <p className="text-3xl font-bold text-secondary mt-2">
+                    {predictionData.metrics.fused_rmse.toFixed(2)}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="glass-strong hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                <CardContent className="p-6 text-center">
+                  <h3 className="text-lg font-semibold text-foreground/80">% Improvement</h3>
+                  <p className="text-3xl font-bold text-green-500 mt-2">
+                    {predictionData.metrics.improvement.toFixed(1)}%
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
 
         {/* Results */}
         {predictionData && (

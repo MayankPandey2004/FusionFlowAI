@@ -6,6 +6,7 @@ import datetime
 import numpy as np
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import LabelEncoder
+import httpx
 
 router = APIRouter()
 
@@ -37,6 +38,33 @@ else:
 
 
 # ---------------------------
+# Helper: Fetch live weather
+# ---------------------------
+async def get_live_weather():
+    """Fetch current weather for Bengaluru via Open-Meteo"""
+    url = (
+        "https://api.open-meteo.com/v1/forecast?"
+        "latitude=12.9716&longitude=77.5946"
+        "&current_weather=true"
+    )
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.get(url)
+            res.raise_for_status()
+            data = res.json()
+            cw = data["current_weather"]
+            return {
+                "temperature": cw["temperature"],
+                "humidity": 55,  # humidity not directly provided by API
+                "condition_encoded": 1 if cw["is_day"] else 0
+            }
+    except Exception as e:
+        print("Weather API error:", e)
+        # fallback defaults
+        return {"temperature": 25, "humidity": 55, "condition_encoded": 0}
+
+
+# ---------------------------
 # Prediction route
 # ---------------------------
 @router.post("")
@@ -59,7 +87,8 @@ async def predict(request: Request):
     if has_actual:
         actual_day["hour"] = actual_day["DateTime"].dt.hour
 
-    # Get weather for that date
+    # Get weather for that date — live first, fallback to CSV if unavailable
+    live_weather = await get_live_weather()
     weather_day = weather_df[weather_df["Date"] == pd.to_datetime(date_obj)]
     weather_info = weather_day.iloc[0] if not weather_day.empty else None
 
@@ -67,7 +96,7 @@ async def predict(request: Request):
     actuals, hist_preds, fused_preds = [], [], []
 
     for hour in range(24):
-        # --- Historical-only model ---
+        # Historical-only model
         X_hist = pd.DataFrame([{
             "hour": hour,
             "dayofweek": date_obj.weekday(),
@@ -75,22 +104,29 @@ async def predict(request: Request):
         }])
         hist_pred = float(historic_model.predict(X_hist)[0])
 
-        # --- Fused model (with weather) ---
+        # Fused model (time + weather)
+        temp = live_weather["temperature"] if live_weather else (
+            weather_info["temperature"] if weather_info is not None else 25
+        )
+        humidity = live_weather["humidity"] if live_weather else (
+            weather_info["humidity"] if weather_info is not None else 55
+        )
+        condition = live_weather["condition_encoded"] if live_weather else (
+            weather_info["condition_encoded"] if weather_info is not None else 0
+        )
+
         X_fused = pd.DataFrame([{
             "hour": hour,
             "dayofweek": date_obj.weekday(),
             "month": date_obj.month,
-            "temperature": weather_info["temperature"] if weather_info is not None else 25,
-            "humidity": weather_info["humidity"] if weather_info is not None else 55,
-            "condition_encoded": weather_info["condition_encoded"] if weather_info is not None else 0
+            "temperature": temp,
+            "humidity": humidity,
+            "condition_encoded": condition
         }])
+
         fused_pred = float(fused_model.predict(X_fused)[0])
 
-        row = {
-            "hour": hour,
-            "historical": hist_pred,
-            "fused": fused_pred
-        }
+        row = {"hour": hour, "historical": hist_pred, "fused": fused_pred}
 
         # Add actual values if available
         if has_actual and hour in actual_day["DateTime"].dt.hour.values:
@@ -113,15 +149,13 @@ async def predict(request: Request):
             "fused_rmse": round(fused_rmse, 3),
             "improvement": round(improvement, 2)
         }
+    else:
+        metrics = None
 
     response = {
         "date": date_str,
         "predictions": results,
+        "metrics": metrics
     }
-
-    if metrics:
-        response["metrics"] = metrics
-    else:
-        response["metrics"] = None  # keep key but indicate no actual data
 
     return response
